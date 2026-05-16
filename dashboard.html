@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tab Atelier</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">T</div>
+          <div>
+            <p class="eyebrow">Brave command center</p>
+            <h1>Tab Atelier</h1>
+          </div>
+        </div>
+
+        <div class="metric-grid" aria-label="Tab overview">
+          <div class="metric">
+            <span id="tabCount">0</span>
+            <small>tabs</small>
+          </div>
+          <div class="metric">
+            <span id="windowCount">0</span>
+            <small>windows</small>
+          </div>
+          <div class="metric">
+            <span id="duplicateCount">0</span>
+            <small>dupes</small>
+          </div>
+          <div class="metric">
+            <span id="staleCount">0</span>
+            <small>stale</small>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Views">
+          <button class="nav-item is-active" data-view="all" type="button">All tabs</button>
+          <button class="nav-item" data-view="clusters" type="button">Smart stacks</button>
+          <button class="nav-item" data-view="duplicates" type="button">Duplicates</button>
+          <button class="nav-item" data-view="sweep" type="button">Sweep mode</button>
+          <button class="nav-item" data-view="sessions" type="button">Saved sessions</button>
+          <button class="nav-item" data-view="rules" type="button">Project rules</button>
+        </nav>
+
+        <section class="side-panel">
+          <h2>Windows</h2>
+          <div id="windowList" class="window-list"></div>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <label class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <input id="searchInput" type="search" placeholder="Search title, URL, domain, project">
+          </label>
+          <div class="toolbar">
+            <button id="refreshButton" class="icon-button" title="Refresh tabs" type="button">↻</button>
+            <button id="saveSelectedButton" type="button">Save session</button>
+            <button id="exportSelectedButton" type="button">Export for Raindrop</button>
+            <button id="copySelectedButton" type="button">Copy URLs</button>
+            <button id="closeSelectedButton" class="danger-button" type="button">Close</button>
+          </div>
+        </header>
+
+        <div id="message" class="message" role="status" aria-live="polite"></div>
+
+        <section id="viewAll" class="view is-visible">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Live browser state</p>
+              <h2>Tabs by window</h2>
+            </div>
+            <button id="groupSelectedButton" type="button">Group selected</button>
+          </div>
+          <div id="tabList" class="tab-list"></div>
+        </section>
+
+        <section id="viewClusters" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Auto-sorted from your open tabs</p>
+              <h2>Smart stacks</h2>
+            </div>
+            <button id="groupAllStacksButton" type="button">Make tab groups</button>
+          </div>
+          <div id="clusterList" class="cluster-grid"></div>
+        </section>
+
+        <section id="viewDuplicates" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Across every open window</p>
+              <h2>Duplicate tabs</h2>
+            </div>
+            <button id="selectDuplicateExtrasButton" type="button">Select extras</button>
+          </div>
+          <div id="duplicateList" class="duplicate-list"></div>
+        </section>
+
+        <section id="viewSweep" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Fast decisions</p>
+              <h2>Sweep mode</h2>
+            </div>
+            <button id="saveAndCloseSweepButton" type="button">Save marked, close marked</button>
+          </div>
+          <div id="sweepList" class="sweep-list"></div>
+        </section>
+
+        <section id="viewSessions" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Stored inside this extension</p>
+              <h2>Saved sessions</h2>
+            </div>
+            <button id="saveAllButton" type="button">Save all open tabs</button>
+          </div>
+          <div id="sessionList" class="session-list"></div>
+        </section>
+
+        <section id="viewRules" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Teach the sorter your projects</p>
+              <h2>Project rules</h2>
+            </div>
+          </div>
+          <form id="ruleForm" class="rule-form">
+            <input id="ruleName" type="text" placeholder="Project name" required>
+            <input id="ruleKeywords" type="text" placeholder="keywords, domains, URL fragments" required>
+            <select id="ruleColor" aria-label="Group color">
+              <option value="blue">Blue</option>
+              <option value="green">Green</option>
+              <option value="yellow">Yellow</option>
+              <option value="red">Red</option>
+              <option value="purple">Purple</option>
+              <option value="cyan">Cyan</option>
+              <option value="pink">Pink</option>
+              <option value="grey">Grey</option>
+            </select>
+            <button type="submit">Add rule</button>
+          </form>
+          <div id="ruleList" class="rule-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="dashboard.js"></script>
+  </body>
+</html>

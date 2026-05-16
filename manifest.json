@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Atelier",
+  "description": "A focused command center for organizing Brave tabs, windows, groups, and saved sessions.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "102",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "downloads",
+    "clipboardWrite"
+  ],
+  "action": {
+    "default_title": "Open Tab Atelier",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "commands": {
+    "open-dashboard": {
+      "suggested_key": {
+        "default": "Alt+Shift+T",
+        "mac": "Alt+Shift+T"
+      },
+      "description": "Open Tab Atelier"
+    }
+  }
+}
