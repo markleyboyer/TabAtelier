@@ -53,24 +53,43 @@ const groupTabs = (tabIds, title, color) =>
         resolve(null);
         return;
       }
-      chrome.tabGroups.update(groupId, { title, color }, () => resolve(groupId));
+      chrome.tabGroups.update(groupId, { title, color }, () => {
+        if (chrome.runtime.lastError) toast(chrome.runtime.lastError.message);
+        resolve(groupId);
+      });
     });
   });
 
+// Pinned tabs can't join tab groups, so they are left out. Returns how many tabs were grouped.
 const groupTabSet = async (tabs, title, color) => {
   const byWindow = new Map();
-  tabs.forEach((tab) => {
+  tabs.filter((tab) => !tab.pinned).forEach((tab) => {
     if (!byWindow.has(tab.windowId)) byWindow.set(tab.windowId, []);
     byWindow.get(tab.windowId).push(tab);
   });
 
+  let grouped = 0;
   for (const windowTabs of byWindow.values()) {
-    await groupTabs(windowTabs.map((tab) => tab.id), title, color);
+    if (await groupTabs(windowTabs.map((tab) => tab.id), title, color) !== null) grouped += windowTabs.length;
   }
+  return grouped;
+};
+
+const groupedMessage = (grouped, total, label = "") => {
+  const skipped = total - grouped;
+  return `Grouped ${grouped} tabs${label}.${skipped ? ` Skipped ${skipped} pinned or unavailable.` : ""}`;
 };
 
 const removeTabs = (tabIds) =>
-  new Promise((resolve) => chrome.tabs.remove(tabIds, resolve));
+  new Promise((resolve, reject) =>
+    chrome.tabs.remove(tabIds, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve();
+    })
+  );
 
 const updateTab = (tabId, change) =>
   new Promise((resolve) => chrome.tabs.update(tabId, change, resolve));
@@ -90,11 +109,25 @@ const moveTabToWindow = (tabId, windowId) =>
   });
 
 const createTab = (url, active = false) =>
-  new Promise((resolve) => chrome.tabs.create({ url, active }, resolve));
+  new Promise((resolve) =>
+    chrome.tabs.create({ url, active }, (tab) => resolve(chrome.runtime.lastError ? null : tab))
+  );
 
+const createWindow = (urls) =>
+  new Promise((resolve) =>
+    chrome.windows.create({ url: urls, focused: false }, (window) => resolve(chrome.runtime.lastError ? null : window))
+  );
+
+// Browser-internal pages (chrome://, edge://, about:, other extensions) can't be opened by an extension.
+const isRestorableUrl = (url) => /^(https?|ftp|file):/i.test(url || "");
+
+// A Blob URL avoids the ~2 MB cap on data: URLs, so large exports still download.
 const downloadFile = (filename, content, mime = "text/html") => {
-  const url = `data:${mime};charset=utf-8,${encodeURIComponent(content)}`;
-  chrome.downloads.download({ url, filename, saveAs: true });
+  const url = URL.createObjectURL(new Blob([content], { type: `${mime};charset=utf-8` }));
+  chrome.downloads.download({ url, filename, saveAs: true }, () => {
+    if (chrome.runtime.lastError) toast(`Export failed: ${chrome.runtime.lastError.message}`);
+  });
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 };
 
 const domainOf = (url) => {
@@ -171,9 +204,9 @@ const tabMatches = (tab) => {
 
 const visibleTabs = () => state.tabs.filter(tabMatches);
 
-const duplicateGroups = () => {
+const duplicateGroups = (tabs = visibleTabs()) => {
   const grouped = new Map();
-  state.tabs.forEach((tab) => {
+  tabs.forEach((tab) => {
     const key = normalizeUrl(tab.url);
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(tab);
@@ -229,7 +262,7 @@ const load = async () => {
 const render = () => {
   els.tabCount.textContent = state.tabs.length;
   els.windowCount.textContent = state.windows.length;
-  els.duplicateCount.textContent = duplicateGroups().reduce((sum, group) => sum + group.length - 1, 0);
+  els.duplicateCount.textContent = duplicateGroups(state.tabs).reduce((sum, group) => sum + group.length - 1, 0);
   els.staleCount.textContent = state.tabs.filter(isStale).length;
   renderWindows();
   renderTabs();
@@ -305,7 +338,7 @@ const tabRow = (tab) => {
       <label class="check">
         <input type="checkbox" data-select-tab="${tab.id}" ${selected ? "checked" : ""}>
       </label>
-      <img src="${tab.favIconUrl || ""}" alt="" onerror="this.style.visibility='hidden'">
+      ${tab.favIconUrl ? `<img class="favicon" src="${escapeHtml(tab.favIconUrl)}" alt="">` : `<span class="favicon" aria-hidden="true"></span>`}
       <div class="tab-main">
         <button class="link-button" data-focus-tab="${tab.id}" type="button">${escapeHtml(tab.title || "Untitled tab")}</button>
         <p>${escapeHtml(domainOf(tab.url || ""))}</p>
@@ -524,8 +557,12 @@ const copyUrls = async (tabs) => {
     toast("Select at least one tab first.");
     return;
   }
-  await navigator.clipboard.writeText(tabs.map((tab) => tab.url).join("\n"));
-  toast(`Copied ${tabs.length} URLs.`);
+  try {
+    await navigator.clipboard.writeText(tabs.map((tab) => tab.url).join("\n"));
+    toast(`Copied ${tabs.length} URLs.`);
+  } catch (error) {
+    toast(`Could not copy: ${error.message}`);
+  }
 };
 
 const focusTab = async (tabId) => {
@@ -535,15 +572,40 @@ const focusTab = async (tabId) => {
   await updateTab(tab.id, { active: true });
 };
 
-const closeTabs = async (tabs) => {
+// Asks before closing more than one tab, and calls out selected tabs the current filter hides.
+const confirmClose = (tabs) => {
+  if (tabs.length < 2) return true;
+  const hidden = tabs.filter((tab) => !tabMatches(tab)).length;
+  const note = hidden ? `\n\n${hidden} of them ${hidden === 1 ? "is" : "are"} hidden by the current search or window filter.` : "";
+  return window.confirm(`Close ${tabs.length} tabs?${note}`);
+};
+
+// Returns how many tabs were closed. If the bulk call fails (e.g. a tab already closed), falls back to one at a time.
+const closeTabs = async (tabs, { confirm = true } = {}) => {
   if (!tabs.length) {
     toast("Select tabs to close.");
-    return;
+    return 0;
   }
-  await removeTabs(tabs.map((tab) => tab.id));
+  if (confirm && !confirmClose(tabs)) return 0;
+
+  let closed = tabs.length;
+  try {
+    await removeTabs(tabs.map((tab) => tab.id));
+  } catch {
+    closed = 0;
+    for (const tab of tabs) {
+      try {
+        await removeTabs(tab.id);
+        closed += 1;
+      } catch {
+        // Already gone or not closable; the reload below drops it from the list.
+      }
+    }
+  }
   tabs.forEach((tab) => state.selected.delete(tab.id));
   await load();
-  toast(`Closed ${tabs.length} tabs.`);
+  toast(closed === tabs.length ? `Closed ${closed} tabs.` : `Closed ${closed} of ${tabs.length} tabs.`);
+  return closed;
 };
 
 const closeWindowTabs = async (windowId) => {
@@ -552,8 +614,9 @@ const closeWindowTabs = async (windowId) => {
     toast("No tabs to close in that window.");
     return;
   }
+  if (!window.confirm(`Close all ${tabs.length} tabs in ${windowLabel(Number(windowId))}? The window will close if nothing else is open in it.`)) return;
 
-  await closeTabs(tabs);
+  await closeTabs(tabs, { confirm: false });
 };
 
 const groupSelected = async () => {
@@ -563,9 +626,40 @@ const groupSelected = async () => {
     return;
   }
   const project = getProject(tabs[0]);
-  await groupTabSet(tabs, project.name, project.color);
+  const grouped = await groupTabSet(tabs, project.name, project.color);
   await load();
-  toast(`Grouped ${tabs.length} tabs as ${project.name}.`);
+  toast(groupedMessage(grouped, tabs.length, ` as ${project.name}`));
+};
+
+// Puts each saved window's tabs back in their own window. A single-window session opens in the current window.
+const restoreSession = async (session) => {
+  const tabs = session.tabs.filter((tab) => isRestorableUrl(tab.url));
+  const byWindow = new Map();
+  tabs.forEach((tab) => {
+    const key = tab.windowId ?? "none";
+    if (!byWindow.has(key)) byWindow.set(key, []);
+    byWindow.get(key).push(tab.url);
+  });
+
+  let opened = 0;
+  if (byWindow.size === 1) {
+    for (const url of tabs.map((tab) => tab.url)) {
+      if (await createTab(url)) opened += 1;
+    }
+  } else {
+    for (const urls of byWindow.values()) {
+      if (await createWindow(urls)) {
+        opened += urls.length;
+      } else {
+        for (const url of urls) {
+          if (await createTab(url)) opened += 1;
+        }
+      }
+    }
+  }
+
+  const skipped = session.tabs.length - opened;
+  toast(`Restored ${opened} tabs.${skipped ? ` Skipped ${skipped} that the browser won't let extensions open.` : ""}`);
 };
 
 const stackByTitle = (title) =>
@@ -706,9 +800,9 @@ document.addEventListener("click", async (event) => {
   if (target.matches("[data-group-stack]")) {
     const stack = stackByTitle(target.dataset.groupStack);
     if (stack?.tabs.length) {
-      await groupTabSet(stack.tabs, stack.title, stack.color);
+      const grouped = await groupTabSet(stack.tabs, stack.title, stack.color);
       await load();
-      toast(`Grouped ${stack.tabs.length} tabs.`);
+      toast(groupedMessage(grouped, stack.tabs.length));
     }
   }
 
@@ -740,10 +834,7 @@ document.addEventListener("click", async (event) => {
 
   if (target.matches("[data-restore-session]")) {
     const session = state.sessions.find((item) => item.id === target.dataset.restoreSession);
-    if (session) {
-      session.tabs.forEach((tab) => createTab(tab.url));
-      toast(`Restoring ${session.tabs.length} tabs.`);
-    }
+    if (session) await restoreSession(session);
   }
 
   if (target.matches("[data-export-session]")) {
@@ -782,11 +873,13 @@ $("#copySelectedButton").addEventListener("click", () => copyUrls(selectedTabs()
 $("#closeSelectedButton").addEventListener("click", () => closeTabs(selectedTabs()));
 $("#groupSelectedButton").addEventListener("click", groupSelected);
 $("#groupAllStacksButton").addEventListener("click", async () => {
-  for (const stack of smartStacks().filter((item) => item.tabs.length > 1)) {
-    await groupTabSet(stack.tabs, stack.title, stack.color);
+  const stacks = smartStacks().filter((item) => item.tabs.length > 1);
+  let grouped = 0;
+  for (const stack of stacks) {
+    grouped += await groupTabSet(stack.tabs, stack.title, stack.color);
   }
   await load();
-  toast("Created groups for the visible stacks.");
+  toast(groupedMessage(grouped, stacks.reduce((sum, stack) => sum + stack.tabs.length, 0), " from the visible stacks"));
 });
 $("#selectDuplicateExtrasButton").addEventListener("click", () => {
   duplicateGroups().forEach((group) => group.slice(1).forEach((tab) => state.selected.add(tab.id)));
@@ -797,11 +890,23 @@ $("#selectDuplicateExtrasButton").addEventListener("click", () => {
 $("#saveAndCloseSweepButton").addEventListener("click", async () => {
   const save = state.tabs.filter((tab) => state.sweep.get(tab.id) === "save");
   const close = state.tabs.filter((tab) => state.sweep.get(tab.id) === "close" || state.sweep.get(tab.id) === "save");
+  if (!close.length) {
+    toast("Mark tabs as Save or Close first.");
+    return;
+  }
+  if (!window.confirm(`Save ${save.length} tabs as a session, then close ${close.length} tabs?`)) return;
   if (save.length) await saveSession(save, `Sweep ${new Date().toLocaleString()}`);
-  if (close.length) await closeTabs(close);
+  const closed = await closeTabs(close, { confirm: false });
   state.sweep.clear();
-  toast(`Swept ${close.length} tabs.`);
+  toast(`Swept ${closed} tabs.`);
 });
+
+// Inline onerror handlers are blocked by the extension CSP, so broken favicons are hidden here instead.
+document.addEventListener("error", (event) => {
+  if (event.target instanceof HTMLImageElement && event.target.matches(".favicon")) {
+    event.target.style.visibility = "hidden";
+  }
+}, true);
 
 $("#ruleForm").addEventListener("submit", async (event) => {
   event.preventDefault();

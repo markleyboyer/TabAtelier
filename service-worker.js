@@ -13,14 +13,22 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type === "OPEN_DASHBOARD") {
-    chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+// Switches to an already-open dashboard instead of opening another copy.
+const openDashboard = async () => {
+  const url = chrome.runtime.getURL("dashboard.html");
+  const [existing] = await chrome.tabs.query({ url });
+  if (existing) {
+    await chrome.windows.update(existing.windowId, { focused: true });
+    await chrome.tabs.update(existing.id, { active: true });
+    return;
   }
+  await chrome.tabs.create({ url });
+};
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === "OPEN_DASHBOARD") openDashboard();
 });
 
 chrome.commands.onCommand.addListener((command) => {
-  if (command === "open-dashboard") {
-    chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
-  }
+  if (command === "open-dashboard") openDashboard();
 });

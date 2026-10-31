@@ -349,7 +349,7 @@ p {
   place-items: center;
 }
 
-.tab-row img {
+.tab-row .favicon {
   width: 20px;
   height: 20px;
 }

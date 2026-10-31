@@ -1,31 +1,29 @@
 # Tab Atelier
 
-Tab Atelier is a local Brave extension for turning tab overload into a dashboard you can act on.
+Tab Atelier is a local browser extension for Chrome and other Chromium-based browsers (Edge, Brave, Vivaldi, Opera) for turning tab overload into a dashboard you can act on.
 
 ## What it does
 
-- Shows every open Brave tab across every window.
+- Shows every open tab across every window.
 - Searches by title, URL, domain, and project rule.
 - Detects duplicate URLs and stale tabs.
-- Creates Brave tab groups from smart stacks.
+- Creates tab groups from smart stacks.
 - Saves selected tabs as restorable sessions inside the extension.
 - Exports selected tabs or sessions as bookmark HTML files that Raindrop.io can import.
 - Copies selected URLs for quick sharing or manual saving.
 - Provides Sweep mode for quickly deciding which tabs to keep, save, or close.
 
-## Install in Brave
+## Install
 
-1. Open `brave://extensions`.
+Requires Chrome 121 or later, or a Chromium-based browser built on it.
+
+1. Open the extensions page:
+   - Chrome: `chrome://extensions`
+   - Edge: `edge://extensions`
+   - Brave: `brave://extensions`
 2. Turn on **Developer mode**.
 3. Click **Load unpacked**.
-4. Select the Tab Atelier folder.
-
-   On this Windows machine, that folder is:
-
-   `C:\Users\mail\Documents\Codex\2026-05-08\i-have-a-recurring-problem-of`
-
-   On a Mac, copy the extension folder anywhere convenient, then select that copied folder.
-
+4. Select this repository's folder (the one containing `manifest.json`).
 5. Pin **Tab Atelier** in the toolbar.
 6. Click the extension icon, then **Open dashboard**.
 
