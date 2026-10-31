@@ -17,17 +17,20 @@ Tab Atelier is a local browser extension for Chrome and other Chromium-based bro
 
 Requires Chrome 121 or later, or a Chromium-based browser built on it.
 
-1. Open the extensions page:
+1. Download `tab-atelier-<version>.zip` from the [latest release](https://github.com/markleyboyer/TabAtelier/releases/latest) and unzip it.
+2. Open the extensions page:
    - Chrome: `chrome://extensions`
    - Edge: `edge://extensions`
    - Brave: `brave://extensions`
-2. Turn on **Developer mode**.
-3. Click **Load unpacked**.
-4. Select this repository's folder (the one containing `manifest.json`).
-5. Pin **Tab Atelier** in the toolbar.
-6. Click the extension icon, then **Open dashboard**.
+3. Turn on **Developer mode**.
+4. Click **Load unpacked**.
+5. Select the unzipped folder (the one containing `manifest.json`).
+6. Pin **Tab Atelier** in the toolbar.
+7. Click the extension icon, then **Open dashboard**.
 
 You can also open it with `Alt+Shift+T`. On Mac keyboards, `Alt` is the `Option` key.
+
+To update, download the new release, replace the folder, and click the reload icon on the extension's card.
 
 ## Raindrop.io workflow
 
@@ -45,3 +48,7 @@ The extension does not need your Raindrop account or API token. That keeps the f
 6. Run **Save marked, close marked**.
 
 The rule of thumb: open tabs are for active work; saved sessions and Raindrop are for memory.
+
+## License
+
+[MIT](LICENSE)

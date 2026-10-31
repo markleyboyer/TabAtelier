@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tab Atelier",
   "description": "A focused command center for organizing browser tabs, windows, groups, and saved sessions.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minimum_chrome_version": "121",
   "permissions": [
     "tabs",
