@@ -203,7 +203,7 @@ p {
 }
 
 .primary-button,
-.toolbar button:nth-child(2),
+#saveSelectedButton,
 #saveAllButton,
 #groupAllStacksButton,
 #saveAndCloseSweepButton,
@@ -214,12 +214,53 @@ p {
 }
 
 .primary-button:hover,
-.toolbar button:nth-child(2):hover,
+#saveSelectedButton:hover,
 #saveAllButton:hover,
 #groupAllStacksButton:hover,
 #saveAndCloseSweepButton:hover,
 #groupSelectedButton:hover {
   background: var(--accent-strong);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.toolbar {
+  align-items: center;
+}
+
+.selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--panel-strong);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.selection-bar.has-selection {
+  background: #e8f5f3;
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.link-button {
+  min-height: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  padding: 0 2px;
+  text-decoration: underline;
+  font-weight: 400;
+}
+
+.link-button[hidden] {
+  display: none;
 }
 
 .danger-button {
@@ -444,6 +485,22 @@ p {
   padding: 14px;
 }
 
+.cluster-card.has-selection {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(13, 107, 111, 0.16), var(--shadow);
+}
+
+.selected-note {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.cluster-actions .is-active {
+  background: #e8f5f3;
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
 .cluster-head,
 .duplicate-head,
 .session-card,
@@ -538,6 +595,23 @@ p {
   display: grid;
   gap: 6px;
   margin-top: 14px;
+}
+
+.mini-list button.is-selected {
+  background: #e8f5f3;
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.mini-list button.is-selected::before {
+  content: "\2713  ";
+  font-weight: 700;
+}
+
+.mini-more {
+  color: var(--muted);
+  font-size: 13px;
+  padding-left: 4px;
 }
 
 .mini-list button {

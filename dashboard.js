@@ -27,6 +27,9 @@ const els = {
   sessionList: $("#sessionList"),
   ruleList: $("#ruleList"),
   message: $("#message"),
+  selectionBar: $(".selection-bar"),
+  selectionCount: $("#selectionCount"),
+  clearSelectionButton: $("#clearSelectionButton"),
   searchInput: $("#searchInput")
 };
 
@@ -264,6 +267,7 @@ const render = () => {
   els.windowCount.textContent = state.windows.length;
   els.duplicateCount.textContent = duplicateGroups(state.tabs).reduce((sum, group) => sum + group.length - 1, 0);
   els.staleCount.textContent = state.tabs.filter(isStale).length;
+  renderSelection();
   renderWindows();
   renderTabs();
   renderClusters();
@@ -350,6 +354,23 @@ const tabRow = (tab) => {
   `;
 };
 
+// The toolbar actions only apply to selected tabs, so show how many there are.
+const renderSelection = () => {
+  const count = state.selected.size;
+  els.selectionCount.textContent = count ? `${count} tab${count === 1 ? "" : "s"} selected` : "No tabs selected";
+  els.selectionBar.classList.toggle("has-selection", count > 0);
+  els.clearSelectionButton.hidden = !count;
+  $$(".selection-action").forEach((button) => {
+    button.disabled = !count;
+  });
+};
+
+const stackSelectButton = (stack, selectedCount) => {
+  const allSelected = selectedCount === stack.tabs.length;
+  const label = allSelected ? "Unselect" : selectedCount ? `Select rest (${selectedCount}/${stack.tabs.length})` : "Select";
+  return `<button class="${allSelected ? "is-active" : ""}" data-select-stack="${escapeHtml(stack.title)}" data-stack-action="${allSelected ? "unselect" : "select"}" type="button">${label}</button>`;
+};
+
 const renderClusters = () => {
   const stacks = smartStacks();
   const duplicates = duplicateGroups();
@@ -373,25 +394,30 @@ const renderClusters = () => {
       : null
   ].filter(Boolean);
 
-  els.clusterList.innerHTML = [...special, ...stacks].map((stack) => `
-    <article class="cluster-card">
+  els.clusterList.innerHTML = [...special, ...stacks].map((stack) => {
+    const selectedCount = stack.tabs.filter((tab) => state.selected.has(tab.id)).length;
+    const hiddenCount = stack.tabs.length - 8;
+    return `
+    <article class="cluster-card ${selectedCount ? "has-selection" : ""}">
       <div class="cluster-head">
         <span class="color-dot ${stack.color}"></span>
         <div>
           <h3>${escapeHtml(stack.title)}</h3>
-          <p>${stack.tabs.length} tabs${stack.note ? ` · ${escapeHtml(stack.note)}` : ""}</p>
+          <p>${stack.tabs.length} tabs${selectedCount ? ` · <span class="selected-note">${selectedCount} selected</span>` : ""}${stack.note ? ` · ${escapeHtml(stack.note)}` : ""}</p>
         </div>
       </div>
       <div class="cluster-actions">
-        <button data-select-stack="${escapeHtml(stack.title)}" type="button">Select</button>
-        <button data-group-stack="${escapeHtml(stack.title)}" type="button">Group</button>
-        <button data-export-stack="${escapeHtml(stack.title)}" type="button">Export</button>
+        ${stackSelectButton(stack, selectedCount)}
+        <button data-group-stack="${escapeHtml(stack.title)}" title="Make a tab group from every tab in this stack" type="button">Group</button>
+        <button data-export-stack="${escapeHtml(stack.title)}" title="Export every tab in this stack" type="button">Export</button>
       </div>
       <div class="mini-list">
-        ${stack.tabs.slice(0, 8).map((tab) => `<button data-focus-tab="${tab.id}" type="button">${escapeHtml(tab.title || domainOf(tab.url))}</button>`).join("")}
+        ${stack.tabs.slice(0, 8).map((tab) => `<button class="${state.selected.has(tab.id) ? "is-selected" : ""}" data-focus-tab="${tab.id}" title="Switch to this tab" type="button">${escapeHtml(tab.title || domainOf(tab.url))}</button>`).join("")}
+        ${hiddenCount > 0 ? `<span class="mini-more">+ ${hiddenCount} more</span>` : ""}
       </div>
     </article>
-  `).join("") || `<div class="empty-state">No stacks yet.</div>`;
+  `;
+  }).join("") || `<div class="empty-state">No stacks yet.</div>`;
 };
 
 const renderDuplicates = () => {
@@ -793,8 +819,10 @@ document.addEventListener("click", async (event) => {
 
   if (target.matches("[data-select-stack]")) {
     const stack = stackByTitle(target.dataset.selectStack);
-    stack?.tabs.forEach((tab) => state.selected.add(tab.id));
+    const unselect = target.dataset.stackAction === "unselect";
+    stack?.tabs.forEach((tab) => (unselect ? state.selected.delete(tab.id) : state.selected.add(tab.id)));
     render();
+    if (stack && !unselect) toast(`Selected ${stack.tabs.length} tabs from ${stack.title}. Use the buttons at the top to save, export, copy, or close them.`);
   }
 
   if (target.matches("[data-group-stack]")) {
@@ -866,6 +894,10 @@ $$(".nav-item").forEach((button) => {
 });
 
 $("#refreshButton").addEventListener("click", load);
+els.clearSelectionButton.addEventListener("click", () => {
+  state.selected.clear();
+  render();
+});
 $("#saveSelectedButton").addEventListener("click", () => saveSession(selectedTabs()));
 $("#saveAllButton").addEventListener("click", () => saveSession(state.tabs, "All open tabs"));
 $("#exportSelectedButton").addEventListener("click", () => exportTabs(selectedTabs()));

@@ -59,10 +59,14 @@
           </label>
           <div class="toolbar">
             <button id="refreshButton" class="icon-button" title="Refresh tabs" type="button">↻</button>
-            <button id="saveSelectedButton" type="button">Save session</button>
-            <button id="exportSelectedButton" type="button">Export for Raindrop</button>
-            <button id="copySelectedButton" type="button">Copy URLs</button>
-            <button id="closeSelectedButton" class="danger-button" type="button">Close</button>
+            <div class="selection-bar" title="These buttons act only on the tabs you have selected">
+              <span id="selectionCount" class="selection-count">No tabs selected</span>
+              <button id="clearSelectionButton" class="link-button" type="button" hidden>Clear</button>
+            </div>
+            <button id="saveSelectedButton" class="selection-action" type="button">Save selected</button>
+            <button id="exportSelectedButton" class="selection-action" type="button">Export selected</button>
+            <button id="copySelectedButton" class="selection-action" type="button">Copy selected URLs</button>
+            <button id="closeSelectedButton" class="danger-button selection-action" type="button">Close selected</button>
           </div>
         </header>
 
@@ -85,7 +89,7 @@
               <p class="eyebrow">Auto-sorted from your open tabs</p>
               <h2>Smart stacks</h2>
             </div>
-            <button id="groupAllStacksButton" type="button">Make tab groups</button>
+            <button id="groupAllStacksButton" title="Turns every stack below into a browser tab group, whether or not its tabs are selected" type="button">Group every stack</button>
           </div>
           <div id="clusterList" class="cluster-grid"></div>
         </section>
