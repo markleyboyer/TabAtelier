@@ -823,3 +823,158 @@ button:disabled {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* Tab list layouts: List (default), Compact and Cards share one row markup. */
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.layout-switch {
+  grid-template-columns: repeat(3, auto);
+}
+
+.layout-switch button {
+  min-height: 34px;
+  padding: 0 14px;
+}
+
+.tab-tile {
+  display: none;
+}
+
+.layout-compact .tab-row {
+  grid-template-columns: 34px 18px minmax(0, 1fr) minmax(110px, auto) minmax(120px, auto) 28px;
+  min-height: 36px;
+  padding: 3px 14px;
+}
+
+/* One line at any width, including below the 1100px breakpoint that stacks List rows */
+.layout-compact .project-pill,
+.layout-compact .tab-flags,
+.layout-compact .row-close-button {
+  grid-column: auto;
+  justify-self: end;
+}
+
+.layout-compact .tab-row .favicon {
+  width: 16px;
+  height: 16px;
+}
+
+.layout-compact .tab-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.layout-compact .tab-main p {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.layout-compact .chip,
+.layout-compact .project-pill {
+  min-height: 20px;
+}
+
+.layout-cards .tab-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+
+.layout-cards .tab-row,
+.layout-cards .tab-row:last-child {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-height: 0;
+  padding: 0 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  overflow: hidden;
+}
+
+.layout-cards .tab-row.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(13, 107, 111, 0.2);
+  background: #f3fbf9;
+}
+
+.layout-cards .tab-row > .favicon {
+  display: none;
+}
+
+.layout-cards .tab-tile {
+  display: grid;
+  place-items: center;
+  height: 96px;
+}
+
+.tile-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: white;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(28, 36, 48, 0.18);
+}
+
+.tab-row .tile-icon .favicon {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  background: white;
+}
+
+.layout-cards .check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.layout-cards .row-close-button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.layout-cards .tab-main {
+  padding: 0 12px;
+}
+
+.layout-cards .tab-main .link-button {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+}
+
+.layout-cards .project-pill {
+  align-self: flex-start;
+  margin: 0 12px;
+}
+
+.layout-cards .tab-flags {
+  justify-content: flex-start;
+  padding: 0 12px;
+}
+
+.layout-cards .tab-flags:empty {
+  display: none;
+}

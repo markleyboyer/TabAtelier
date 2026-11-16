@@ -8,6 +8,7 @@ const state = {
   draggingTabId: null,
   activeView: "all",
   activeWindowId: "all",
+  layout: "list",
   query: ""
 };
 
@@ -247,7 +248,7 @@ const load = async () => {
     tabsQuery({}),
     windowsGetAll(),
     tabGroupsQuery(),
-    storageGet({ sessions: [], projectRules: [] })
+    storageGet({ sessions: [], projectRules: [], tabLayout: "list" })
   ]);
 
   const groupLookup = new Map(groups.map((group) => [group.id, group]));
@@ -257,6 +258,7 @@ const load = async () => {
   state.windows = windows;
   state.sessions = saved.sessions;
   state.projectRules = saved.projectRules;
+  state.layout = saved.tabLayout;
   state.selected = new Set([...state.selected].filter((id) => state.tabs.some((tab) => tab.id === id)));
 
   render();
@@ -292,7 +294,10 @@ const renderWindows = () => {
   els.windowList.innerHTML = items.join("");
 };
 
+// List, Compact and Cards share one row markup, so selecting, dragging and closing work the same in each.
 const renderTabs = () => {
+  els.tabList.className = `tab-list layout-${state.layout}`;
+  $$("[data-layout]").forEach((button) => button.classList.toggle("is-active", button.dataset.layout === state.layout));
   const tabs = visibleTabs();
   if (!tabs.length) {
     els.tabList.innerHTML = `<div class="empty-state">No matching tabs.</div>`;
@@ -314,7 +319,7 @@ const renderTabs = () => {
           <button class="danger-subtle" data-close-window-tabs="${windowId}" type="button">Close tabs</button>
         </div>
       </div>
-      ${windowTabs.map(tabRow).join("")}
+      <div class="tab-rows">${windowTabs.map(tabRow).join("")}</div>
     </section>
   `).join("");
 };
@@ -343,6 +348,12 @@ const tabRow = (tab) => {
         <input type="checkbox" data-select-tab="${tab.id}" ${selected ? "checked" : ""}>
       </label>
       ${tab.favIconUrl ? `<img class="favicon" src="${escapeHtml(tab.favIconUrl)}" alt="">` : `<span class="favicon" aria-hidden="true"></span>`}
+      <div class="tab-tile ${project.color}" aria-hidden="true">
+        <div class="tile-icon">
+          <span>${escapeHtml((domainOf(tab.url || "")[0] || "?").toUpperCase())}</span>
+          ${tab.favIconUrl ? `<img class="favicon" src="${escapeHtml(tab.favIconUrl)}" alt="">` : ""}
+        </div>
+      </div>
       <div class="tab-main">
         <button class="link-button" data-focus-tab="${tab.id}" type="button">${escapeHtml(tab.title || "Untitled tab")}</button>
         <p>${escapeHtml(domainOf(tab.url || ""))}</p>
@@ -1083,6 +1094,13 @@ todo.form.addEventListener("submit", (event) => {
   sendToTodo();
 });
 $("#groupSelectedButton").addEventListener("click", groupSelected);
+$$("[data-layout]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    state.layout = button.dataset.layout;
+    renderTabs();
+    await storageSet({ tabLayout: state.layout });
+  });
+});
 $("#groupAllStacksButton").addEventListener("click", async () => {
   const stacks = smartStacks().filter((item) => item.tabs.length > 1);
   let grouped = 0;

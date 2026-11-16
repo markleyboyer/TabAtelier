@@ -79,7 +79,14 @@
               <p class="eyebrow">Live browser state</p>
               <h2>Tabs by window</h2>
             </div>
-            <button id="groupSelectedButton" type="button">Group selected</button>
+            <div class="section-actions">
+              <div class="segmented layout-switch" role="group" aria-label="Layout">
+                <button data-layout="list" type="button">List</button>
+                <button data-layout="compact" type="button">Compact</button>
+                <button data-layout="cards" type="button">Cards</button>
+              </div>
+              <button id="groupSelectedButton" type="button">Group selected</button>
+            </div>
           </div>
           <div id="tabList" class="tab-list"></div>
         </section>

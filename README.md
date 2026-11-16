@@ -4,13 +4,14 @@ Tab Atelier is a local browser extension for Chrome and other Chromium-based bro
 
 ## What it does
 
-- Shows every open tab across every window.
+- Shows every open tab across every window, as a list, a compact list, or cards.
 - Searches by title, URL, domain, and project rule.
 - Detects duplicate URLs and stale tabs.
 - Creates tab groups from smart stacks.
 - Saves selected tabs as restorable sessions inside the extension.
 - Optionally exports selected tabs or sessions as bookmark HTML files that Raindrop.io can import.
 - Copies selected URLs for quick sharing or manual saving.
+- Optionally sends selected tabs to a ToDoOrganizer server as one named task.
 - Provides Sweep mode for quickly deciding which tabs to keep, save, or close.
 
 ## Install
