@@ -616,6 +616,7 @@ const todo = {
   project: $("#todoProject"),
   due: $("#todoDue"),
   closeTabs: $("#todoCloseTabs"),
+  raindrop: $("#todoRaindrop"),
   error: $("#todoError"),
   send: $("#todoSendButton"),
   tabs: [],
@@ -691,8 +692,9 @@ const openTodoDialog = async () => {
     toast("Select at least one tab first.");
     return;
   }
-  const { todoServer } = await storageGet({ todoServer: "" });
+  const { todoServer, todoRaindrop } = await storageGet({ todoServer: "", todoRaindrop: false });
   todo.base = todoServer;
+  todo.raindrop.checked = todoRaindrop;
   todo.summary.textContent = `${todo.tabs.length} tab${todo.tabs.length === 1 ? "" : "s"} will be listed in the task's notes.`;
   todo.name.value = todo.tabs.length === 1 ? todo.tabs[0].title || domainOf(todo.tabs[0].url) : "";
   todo.name.placeholder = todo.tabs[0].title || "What these tabs are for";
@@ -751,18 +753,23 @@ const readableTitle = (tab) => {
   }
 };
 
-// One markdown link per tab, "[Title](url)", skipping repeats of the same page.
-const todoNoteLines = (tabs) => {
+// Repeats of the same page are sent once.
+const uniqueTabs = (tabs) => {
   const seen = new Set();
-  return tabs.flatMap((tab) => {
+  return tabs.filter((tab) => {
     const key = normalizeUrl(tab.url);
-    if (seen.has(key)) return [];
+    if (seen.has(key)) return false;
     seen.add(key);
-    const title = readableTitle(tab).replace(/[[\]]/g, "");
-    const url = tab.url.replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/\s/g, "%20");
-    return [`[${title}](${url})`];
+    return true;
   });
 };
+
+// One markdown link per tab, "[Title](url)".
+const todoNoteLines = (tabs) => tabs.map((tab) => {
+  const title = readableTitle(tab).replace(/[[\]]/g, "");
+  const url = tab.url.replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/\s/g, "%20");
+  return `[${title}](${url})`;
+});
 
 const sendToTodo = async () => {
   const text = todo.name.value.trim();
@@ -770,14 +777,20 @@ const sendToTodo = async () => {
   todo.send.disabled = true;
   todoError("");
   try {
-    const lines = todoNoteLines(todo.tabs);
+    const unique = uniqueTabs(todo.tabs);
+    const lines = todoNoteLines(unique);
     const notes = lines.join("\n");
-    await todoFetch("/tasks", {
+    const toRaindrop = todo.raindrop.checked;
+    const task = { text, project: todo.project.value, due: todo.due.value || undefined, notes };
+    // The server holds the Raindrop connection, so this extension never sees a Raindrop token
+    await todoFetch(toRaindrop ? "/raindrop/task" : "/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, project: todo.project.value, due: todo.due.value || undefined, tags: ["tabs"], notes })
+      body: JSON.stringify(toRaindrop
+        ? { ...task, tabs: unique.map((tab) => ({ title: readableTitle(tab), url: tab.url })) }
+        : { ...task, tags: ["tabs"] })
     });
-    await storageSet({ todoLastProject: todo.project.value });
+    await storageSet({ todoLastProject: todo.project.value, todoRaindrop: toRaindrop });
     const projectName = todo.project.selectedOptions[0]?.textContent || todo.project.value;
     todo.dialog.close();
     todo.tabs.forEach((tab) => state.selected.delete(tab.id));
@@ -787,7 +800,9 @@ const sendToTodo = async () => {
       render();
     }
     const repeats = todo.tabs.length - lines.length;
-    toast(`Added "${text}" to ${projectName} with ${lines.length} link${lines.length === 1 ? "" : "s"}${repeats ? ` (${repeats} duplicate tab${repeats === 1 ? "" : "s"} left out)` : ""}.`);
+    toast(`Added "${text}" to ${projectName} with ${lines.length} link${lines.length === 1 ? "" : "s"}`
+      + `${toRaindrop ? `, also saved to Raindrop in To Do › ${text}` : ""}`
+      + `${repeats ? ` (${repeats} duplicate tab${repeats === 1 ? "" : "s"} left out)` : ""}.`);
   } catch (error) {
     todoError(error.message);
     todo.send.disabled = false;
