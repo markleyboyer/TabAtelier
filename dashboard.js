@@ -591,6 +591,168 @@ const copyUrls = async (tabs) => {
   }
 };
 
+// Send to To Do: one task in a ToDoOrganizer server, with the tabs listed in its notes.
+// The server address is a setting, and the extension asks for access to that one site when you connect.
+const todo = {
+  dialog: $("#todoDialog"),
+  form: $("#todoForm"),
+  summary: $("#todoTabSummary"),
+  serverRow: $("#todoServerRow"),
+  server: $("#todoServer"),
+  serverNote: $("#todoServerNote"),
+  serverName: $("#todoServerName"),
+  name: $("#todoTaskName"),
+  project: $("#todoProject"),
+  due: $("#todoDue"),
+  closeTabs: $("#todoCloseTabs"),
+  error: $("#todoError"),
+  send: $("#todoSendButton"),
+  tabs: [],
+  base: ""
+};
+
+// "todo.example.com", "https://todo.example.com/api/" and "localhost:3001" all become an origin.
+const normalizeServer = (value) => {
+  let text = value.trim().replace(/\/+$/, "").replace(/\/api$/, "");
+  if (!text) return "";
+  if (!/^https?:\/\//i.test(text)) text = `${/^(localhost|127\.0\.0\.1)(:|$)/.test(text) ? "http" : "https"}://${text}`;
+  try {
+    return new URL(text).origin;
+  } catch {
+    return "";
+  }
+};
+
+const todoError = (text) => {
+  todo.error.textContent = text;
+  todo.error.hidden = !text;
+};
+
+const showServerField = (show) => {
+  todo.serverRow.hidden = !show;
+  todo.serverNote.hidden = show;
+  todo.serverName.textContent = todo.base ? `Sending to ${new URL(todo.base).host}` : "";
+};
+
+// A server behind a sign-in page (Cloudflare Access and the like) redirects instead of answering with JSON.
+const todoFetch = async (path, options = {}) => {
+  let response;
+  try {
+    response = await fetch(`${todo.base}/api${path}`, { credentials: "include", ...options });
+  } catch {
+    throw new Error(`Couldn't reach ${new URL(todo.base).host}. If it has a sign-in page, open it in this browser and sign in, then try again.`);
+  }
+  const isJson = (response.headers.get("content-type") || "").includes("application/json");
+  if (!isJson) throw new Error(`${new URL(todo.base).host} didn't answer like a To Do server. If it has a sign-in page, open it in this browser and sign in, then try again.`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `The server returned an error (${response.status}).`);
+  return data;
+};
+
+const loadTodoProjects = async () => {
+  todo.project.disabled = true;
+  todo.send.disabled = true;
+  todo.project.innerHTML = `<option>Loading projects…</option>`;
+  try {
+    const projects = (await todoFetch("/projects"))
+      .filter((project) => project.status === "active")
+      .sort((a, b) => (a.slug === "inbox" ? -1 : b.slug === "inbox" ? 1 : a.name.localeCompare(b.name)));
+    if (!projects.length) throw new Error("That server has no active projects.");
+    const { todoLastProject } = await storageGet({ todoLastProject: "" });
+    todo.project.innerHTML = projects
+      .map((project) => `<option value="${escapeHtml(project.slug)}">${escapeHtml(project.name)}</option>`)
+      .join("");
+    if (projects.some((project) => project.slug === todoLastProject)) todo.project.value = todoLastProject;
+    todo.project.disabled = false;
+    todo.send.disabled = false;
+    todoError("");
+    return true;
+  } catch (error) {
+    todo.project.innerHTML = "";
+    todoError(error.message);
+    return false;
+  }
+};
+
+const openTodoDialog = async () => {
+  todo.tabs = selectedTabs();
+  if (!todo.tabs.length) {
+    toast("Select at least one tab first.");
+    return;
+  }
+  const { todoServer } = await storageGet({ todoServer: "" });
+  todo.base = todoServer;
+  todo.summary.textContent = `${todo.tabs.length} tab${todo.tabs.length === 1 ? "" : "s"} will be listed in the task's notes.`;
+  todo.name.value = todo.tabs.length === 1 ? todo.tabs[0].title || domainOf(todo.tabs[0].url) : "";
+  todo.name.placeholder = todo.tabs[0].title || "What these tabs are for";
+  todo.due.value = "";
+  todo.closeTabs.checked = false;
+  todoError("");
+  todo.server.value = todoServer ? new URL(todoServer).host : "";
+  showServerField(!todoServer);
+  todo.project.innerHTML = "";
+  todo.project.disabled = true;
+  todo.send.disabled = true;
+  todo.dialog.showModal();
+  (todoServer ? todo.name : todo.server).focus();
+  todo.name.select();
+  if (todoServer) loadTodoProjects();
+};
+
+// Runs from a click, which Chrome requires before it shows the permission prompt.
+const connectTodoServer = async () => {
+  const base = normalizeServer(todo.server.value);
+  if (!base) {
+    todoError("Enter the address of your To Do server.");
+    return;
+  }
+  let granted = false;
+  try {
+    granted = await chrome.permissions.request({ origins: [`${base}/*`] });
+  } catch (error) {
+    todoError(`Couldn't ask for access to ${new URL(base).host}: ${error.message}`);
+    return;
+  }
+  if (!granted) {
+    todoError(`Tab Atelier needs access to ${new URL(base).host} to create tasks there.`);
+    return;
+  }
+  todo.base = base;
+  if (await loadTodoProjects()) {
+    await storageSet({ todoServer: base });
+    showServerField(false);
+    todo.name.focus();
+  }
+};
+
+const sendToTodo = async () => {
+  const text = todo.name.value.trim();
+  if (!text || !todo.project.value) return;
+  todo.send.disabled = true;
+  todoError("");
+  try {
+    const notes = todo.tabs.map((tab) => `${(tab.title || domainOf(tab.url)).replace(/\s+/g, " ")} — ${tab.url}`).join("\n");
+    await todoFetch("/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, project: todo.project.value, due: todo.due.value || undefined, tags: ["tabs"], notes })
+    });
+    await storageSet({ todoLastProject: todo.project.value });
+    const projectName = todo.project.selectedOptions[0]?.textContent || todo.project.value;
+    todo.dialog.close();
+    todo.tabs.forEach((tab) => state.selected.delete(tab.id));
+    if (todo.closeTabs.checked) {
+      await closeTabs(todo.tabs, { confirm: false });
+    } else {
+      render();
+    }
+    toast(`Added "${text}" to ${projectName} with ${todo.tabs.length} tab${todo.tabs.length === 1 ? "" : "s"}.`);
+  } catch (error) {
+    todoError(error.message);
+    todo.send.disabled = false;
+  }
+};
+
 const focusTab = async (tabId) => {
   const tab = state.tabs.find((item) => item.id === Number(tabId));
   if (!tab) return;
@@ -903,6 +1065,23 @@ $("#saveAllButton").addEventListener("click", () => saveSession(state.tabs, "All
 $("#exportSelectedButton").addEventListener("click", () => exportTabs(selectedTabs()));
 $("#copySelectedButton").addEventListener("click", () => copyUrls(selectedTabs()));
 $("#closeSelectedButton").addEventListener("click", () => closeTabs(selectedTabs()));
+$("#todoSelectedButton").addEventListener("click", openTodoDialog);
+$("#todoConnectButton").addEventListener("click", connectTodoServer);
+$("#todoChangeServerButton").addEventListener("click", () => {
+  showServerField(true);
+  todo.server.focus();
+  todo.server.select();
+});
+todo.server.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  connectTodoServer();
+});
+$("#todoCancelButton").addEventListener("click", () => todo.dialog.close());
+todo.form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  sendToTodo();
+});
 $("#groupSelectedButton").addEventListener("click", groupSelected);
 $("#groupAllStacksButton").addEventListener("click", async () => {
   const stacks = smartStacks().filter((item) => item.tabs.length > 1);

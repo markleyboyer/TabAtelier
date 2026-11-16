@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tab Atelier",
   "description": "A focused command center for organizing browser tabs, windows, groups, and saved sessions.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "minimum_chrome_version": "121",
   "permissions": [
     "tabs",
@@ -10,6 +10,11 @@
     "storage",
     "downloads",
     "clipboardWrite"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "icons": {
     "16": "icons/icon-16.png",

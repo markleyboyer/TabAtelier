@@ -66,6 +66,7 @@
             <button id="saveSelectedButton" class="selection-action" type="button">Save selected</button>
             <button id="exportSelectedButton" class="selection-action" type="button">Export selected</button>
             <button id="copySelectedButton" class="selection-action" type="button">Copy selected URLs</button>
+            <button id="todoSelectedButton" class="selection-action" title="Create one task in your ToDoOrganizer with these tabs listed in its notes" type="button">Send to To Do</button>
             <button id="closeSelectedButton" class="danger-button selection-action" type="button">Close selected</button>
           </div>
         </header>
@@ -153,6 +154,51 @@
         </section>
       </section>
     </main>
+
+    <dialog id="todoDialog" class="todo-dialog">
+      <form id="todoForm" method="dialog">
+        <h2>Send to To Do</h2>
+        <p id="todoTabSummary" class="todo-summary"></p>
+
+        <div id="todoServerRow" class="todo-server">
+          <label>
+            <span>To Do server</span>
+            <input id="todoServer" type="text" placeholder="todo.example.com or localhost:3001" autocomplete="off">
+          </label>
+          <button id="todoConnectButton" type="button">Connect</button>
+        </div>
+        <p id="todoServerNote" class="todo-note" hidden>
+          <span id="todoServerName"></span>
+          <button id="todoChangeServerButton" class="link-button" type="button">Change</button>
+        </p>
+
+        <label>
+          <span>Task name</span>
+          <input id="todoTaskName" type="text" required>
+        </label>
+        <div class="todo-row">
+          <label>
+            <span>Project</span>
+            <select id="todoProject" required disabled></select>
+          </label>
+          <label>
+            <span>Due</span>
+            <input id="todoDue" type="date">
+          </label>
+        </div>
+        <label class="todo-check">
+          <input id="todoCloseTabs" type="checkbox">
+          <span>Close these tabs after sending</span>
+        </label>
+
+        <p id="todoError" class="todo-error" hidden></p>
+
+        <div class="todo-actions">
+          <button id="todoCancelButton" type="button">Cancel</button>
+          <button id="todoSendButton" class="primary-button" type="submit" disabled>Create task</button>
+        </div>
+      </form>
+    </dialog>
 
     <script src="dashboard.js"></script>
   </body>
