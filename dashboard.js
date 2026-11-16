@@ -736,13 +736,42 @@ const connectTodoServer = async () => {
   }
 };
 
+// A tab whose page never set a title reports its URL instead; show the site and path rather than a long URL.
+const readableTitle = (tab) => {
+  const title = (tab.title || "").replace(/\s+/g, " ").trim();
+  const url = tab.url || "";
+  const looksLikeUrl = !title || url.includes(title) || /^(https?:\/\/)?[\w.-]+\.[a-z]{2,}\/\S*$/i.test(title);
+  if (!looksLikeUrl) return title;
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/$/, "");
+    return `${domainOf(url)}${path.length > 40 ? `${path.slice(0, 40)}…` : path}`;
+  } catch {
+    return domainOf(url);
+  }
+};
+
+// One markdown link per tab, "[Title](url)", skipping repeats of the same page.
+const todoNoteLines = (tabs) => {
+  const seen = new Set();
+  return tabs.flatMap((tab) => {
+    const key = normalizeUrl(tab.url);
+    if (seen.has(key)) return [];
+    seen.add(key);
+    const title = readableTitle(tab).replace(/[[\]]/g, "");
+    const url = tab.url.replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/\s/g, "%20");
+    return [`[${title}](${url})`];
+  });
+};
+
 const sendToTodo = async () => {
   const text = todo.name.value.trim();
   if (!text || !todo.project.value) return;
   todo.send.disabled = true;
   todoError("");
   try {
-    const notes = todo.tabs.map((tab) => `${(tab.title || domainOf(tab.url)).replace(/\s+/g, " ")} — ${tab.url}`).join("\n");
+    const lines = todoNoteLines(todo.tabs);
+    const notes = lines.join("\n");
     await todoFetch("/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -757,7 +786,8 @@ const sendToTodo = async () => {
     } else {
       render();
     }
-    toast(`Added "${text}" to ${projectName} with ${todo.tabs.length} tab${todo.tabs.length === 1 ? "" : "s"}.`);
+    const repeats = todo.tabs.length - lines.length;
+    toast(`Added "${text}" to ${projectName} with ${lines.length} link${lines.length === 1 ? "" : "s"}${repeats ? ` (${repeats} duplicate tab${repeats === 1 ? "" : "s"} left out)` : ""}.`);
   } catch (error) {
     todoError(error.message);
     todo.send.disabled = false;
